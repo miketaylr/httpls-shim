@@ -1,8 +1,6 @@
 importScripts(
-	'../shim/console.worker.js',
-	'../shim/console.time.js',
-	'//jdataview.github.io/dist/jdataview.js',
-	'//jdataview.github.io/dist/jbinary.js',
+	'jdataview.js',
+	'jbinary.js',
 	'mpegts.js',
 	'mp4.js',
 	'pes.js',
@@ -24,7 +22,7 @@ addEventListener('message', function (event) {
 			console.time('convert');
 
 			var packets = mpegts.read('File');
-			
+
 			// extracting and concatenating raw stream parts
 			var stream = new jDataView(mpegts.view.byteLength);
 			for (var i = 0, length = packets.length; i < length; i++) {
@@ -33,17 +31,17 @@ addEventListener('message', function (event) {
 					stream.writeBytes(payload._rawStream);
 				}
 			}
-			
+
 			var pesStream = new jBinary(stream.slice(0, stream.tell()), PES),
 				audioStream = new jBinary(stream.byteLength, ADTS),
 				samples = [],
 				audioSamples = [];
-			
+
 			stream = new jDataView(stream.byteLength);
-			
+
 			while (pesStream.tell() < pesStream.view.byteLength) {
 				var packet = pesStream.read('PESPacket');
-				
+
 				if (packet.streamId === 0xC0) {
 					// 0xC0 means we have got first audio stream
 					audioStream.write('blob', packet.data);
@@ -51,9 +49,9 @@ addEventListener('message', function (event) {
 				if (packet.streamId === 0xE0) {
 					var nalStream = new jBinary(packet.data, H264),
 						curSample = {offset: stream.tell(), pts: packet.pts, dts: packet.dts || packet.pts};
-					
+
 					samples.push(curSample);
-					
+
 					// collecting info from H.264 NAL units
 					while (nalStream.tell() < nalStream.view.byteLength) {
 						var nalUnit = nalStream.read('NALUnit');
@@ -88,7 +86,7 @@ addEventListener('message', function (event) {
 					}
 				}
 			}
-			
+
 			samples.push({offset: stream.tell()});
 
 			var sizes = [],
@@ -98,9 +96,9 @@ addEventListener('message', function (event) {
 				current = samples[0],
 				frameRate = {sum: 0, count: 0},
 				duration = 0;
-			
+
 			// calculating PTS/DTS differences and collecting keyframes
-			
+
 			for (var i = 0, length = samples.length - 1; i < length; i++) {
 				var next = samples[i + 1];
 				sizes.push(next.offset - current.offset);
@@ -123,9 +121,9 @@ addEventListener('message', function (event) {
 				});
 				current = next;
 			}
-			
+
 			frameRate = frameRate.sum / frameRate.count;
-			
+
 			for (var i = 0, length = dtsDiffs.length; i < length; i++) {
 				if (dtsDiffs[i] === undefined) {
 					dtsDiffs[i] = {first_chunk: i + 1, sample_count: 1, sample_delta: frameRate};
@@ -133,18 +131,18 @@ addEventListener('message', function (event) {
 					//samples[i + 1].dts = samples[i].dts + frameRate;
 				}
 			}
-			
+
 			// checking if DTS differences are same everywhere to pack them into one item
-			
+
 			var dtsDiffsSame = true;
-			
+
 			for (var i = 1, length = dtsDiffs.length; i < length; i++) {
 				if (dtsDiffs[i].sample_delta !== dtsDiffs[0].sample_delta) {
 					dtsDiffsSame = false;
 					break;
 				}
 			}
-			
+
 			if (dtsDiffsSame) {
 				dtsDiffs = [{first_chunk: 1, sample_count: sizes.length, sample_delta: dtsDiffs[0].sample_delta}];
 			}
@@ -156,9 +154,9 @@ addEventListener('message', function (event) {
 				audioSizes = [],
 				audioHeader,
 				maxAudioSize = 0;
-				
+
 			audioStream.seek(0);
-			
+
 			while (audioStream.tell() < audioSize) {
 				audioHeader = audioStream.read('ADTSPacket');
 				audioSizes.push(audioHeader.data.length);
@@ -171,7 +169,7 @@ addEventListener('message', function (event) {
 			// generating resulting MP4
 
 			var file = new jBinary(stream.byteLength, MP4);
-			
+
 			var trak = [{
 				atoms: {
 					tkhd: [{
@@ -454,7 +452,7 @@ addEventListener('message', function (event) {
 					}
 				});
 			};
-			
+
 			var creationTime = new Date();
 
 			file.write('File', {
@@ -488,9 +486,9 @@ addEventListener('message', function (event) {
 					}
 				}]
 			});
-			
+
 			var url = file.slice(0, file.tell()).toURI('video/mp4');
-			
+
 			console.timeEnd('convert');
 
 			postMessage({type: 'video', index: msg.index, original: msg.url, url: url});
