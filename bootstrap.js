@@ -3,45 +3,34 @@ const Cu = Components.utils;
 
 Cu.import("resource://gre/modules/AddonManager.jsm");
 Cu.import("resource://gre/modules/Services.jsm");
-Cu.import("resource://gre/modules/XPCOMUtils.jsm");
 
 let log = msg => Components.classes['@mozilla.org/consoleservice;1'].
                  getService(Components.interfaces.nsIConsoleService).
                  logStringMessage(msg);
 
-// let httplsShim = {
-//   register: function() {
-//     Services.obs.addObserver(this, "content-document-global-created", false);
-//   },
-//   observe: function(subject, topic, data) {
-//     // see https://developer.mozilla.org/en-US/docs/Observer_Notifications
-//     if (topic == "content-document-global-created") {}
-//   },
-//   unregister: function() {
-//     Services.obs.removeObserver(this, "content-document-global-created");
-//   }
-// };
+let httplsShim = {
+  register: function() {
+    Services.obs.addObserver(this, "content-document-global-created", false);
+  },
+  observe: function(subject, topic, data) {
+    // see https://developer.mozilla.org/en-US/docs/Observer_Notifications
+    if (topic == "content-document-global-created") {}
+  },
+  unregister: function() {
+    Services.obs.removeObserver(this, "content-document-global-created");
+  }
+};
 
 let handleTabSelect = e => {}
-
-// An example of how to import a helper module.
-XPCOMUtils.defineLazyGetter(this, "Helper", function() {
-  let sandbox = {};
-  Services.scriptloader.loadSubScript("chrome://shim/content/helper.js", sandbox);
-  return sandbox["Helper"];
-});
 
 function loadIntoWindow(window) {
   // window here is a chrome window, not a dom window
   if (!window)
     return;
 
-  log(Helper.hi);
-
   let worker = new Worker("chrome://shim/content/worker.js");
-  log(worker);
 
-  //httplsShim.register();
+  httplsShim.register();
   window.BrowserApp.deck.addEventListener("TabSelect", handleTabSelect);
 }
 
@@ -49,8 +38,8 @@ function unloadFromWindow(window) {
   if (!window)
     return;
 
-  // httplsShim.unregister();
-  // httplsShim = null;
+  httplsShim.unregister();
+  httplsShim = null;
   window.BrowserApp.deck.removeEventListener("TabSelect", handleTabSelect);
 }
 
