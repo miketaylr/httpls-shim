@@ -1,13 +1,6 @@
-importScripts(
-	'jdataview.js',
-	'jbinary.js',
-	'mpegts.js',
-	'mp4.js',
-	'pes.js',
-	'h264.js',
-	'adts.js',
-	'async.js'
-);
+importScripts('console.worker.js', 'console.time.js', 'jdataview.js',
+  'jbinary.js', 'mpegts.js', 'mp4.js', 'pes.js', 'h264.js', 'adts.js',
+	'async.js');
 
 addEventListener('message', function (event) {
 	// processing received sources one by one
@@ -451,7 +444,7 @@ addEventListener('message', function (event) {
 						}]
 					}
 				});
-			};
+			}
 
 			var creationTime = new Date();
 
@@ -487,11 +480,9 @@ addEventListener('message', function (event) {
 				}]
 			});
 
-			var url = file.slice(0, file.tell()).toURI('video/mp4');
-
+			var bytes = file.slice(0, file.tell()).toRawBytes();
 			console.timeEnd('convert');
-
-			postMessage({type: 'video', index: msg.index, original: msg.url, url: url});
+			postMessage({type: 'video', index: msg.index, bytes: bytes});
 		});
 	});
 });
